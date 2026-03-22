@@ -26,13 +26,13 @@ class LLaMa70BStatistics(ModelStatistics):
         """
         # estimate the typical number of layers on node
         typical_layers_dict = {"A100": 8, "V100": 3, "L4": 4, "L4x2": 9, "T4": 3, "T4x2": 6, "T4x4": 12,
-                               "RTX5090": 10}
+                               "RTX5090": 6}
         total_layer_capacity = 0
         for machine_name in num_machines_dict:
             total_layer_capacity += num_machines_dict[machine_name] * typical_layers_dict[machine_name]
         if total_layer_capacity < LLaMa2_70B_TOTAL_LAYERS * 1.2:
             typical_layers_dict = {"A100": 12, "V100": 4, "L4": 7, "L4x2": 14, "T4": 4, "T4x2": 9, "T4x4": 18,
-                                   "RTX5090": 10}
+                                   "RTX5090": 9}
         typical_layers_dict = {m_type: typical_layers_dict[m_type] for m_type in num_machines_dict}
 
         # estimate the normalized performance

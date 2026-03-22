@@ -18,42 +18,23 @@ class LLaMa70BonRTX5090(ModelOnMachine):
         Latency tables: load from this directory (same folder as this file):
           prompt_bs2time.csv, decode_bs2time.csv
         Copy profiling outputs here after running helix-rtx5090-profiling.
+
+        Inference memory caps (vllm_num_blocks_dict, prompt_max_requests_dict, decode_max_tokens_dict) are
+        copied from llama2_70b_t4x2.py as a conservative placeholder until 5090 is profiled on hardware.
         """
         machine_name: str = "RTX5090"
-        # Assumes ~32GB VRAM (consumer RTX 5090). max_num_layers = max transformer layers placed on ONE
-        # such GPU in your Helix cluster (not full 70B). Tune if your placement / TP differs.
-        max_num_layers: int = 10
+        # Same as T4x2 profile: max layers per node for this table (see llama2_70b_t4x2.py).
+        max_num_layers: int = 9  # use 16GB for parameters (per T4x2 row)
 
-        # vllm_num_blocks_dict: Helix uses these like the official profiles (see llama2_70b_a100 / l4).
-        # Below is a HEURISTIC, not paper-measured: linear blend L4(24GB)↔A100(40GB) at α=(32-24)/(40-24)=0.5
-        # for layers 1–7; layers 8–10 use A100 values × (32/40) (no L4 row to blend).
-        # For production, re-measure with vLLM on your 5090 (gpu_memory_utilization, dtype, TP) and replace.
+        # Copied from llama2_70b_t4x2.py (T4 16GB x 2) — conservative placeholder; replace after vLLM measurement.
         vllm_num_blocks_dict: Dict[int, int] = {
-            1: 382236,
-            2: 178562,
-            3: 109998,
-            4: 75970,
-            5: 55554,
-            6: 41943,
-            7: 32221,
-            8: 31554,
-            9: 25726,
-            10: 21065,
+            1: 366898, 2: 168665, 3: 103099, 4: 70316, 5: 50646, 6: 37533, 7: 28167, 8: 21142, 9: 15678
+        }  # num layers -> num_blocks
+        prompt_max_requests_dict: Dict[int, int] = {
+            1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1
         }
-        # L4 uses 1 concurrent prompt req; A100 uses 3 — midpoint 2 for 32GB class.
-        prompt_max_requests_dict: Dict[int, int] = {i: 2 for i in range(1, max_num_layers + 1)}
-        # decode_max_tokens: blend L4 (380, …, 280@7) and A100 (480, …) for 1–7; 8–10 scale A100 by 32/40.
         decode_max_tokens_dict: Dict[int, int] = {
-            1: 430,
-            2: 430,
-            3: 430,
-            4: 430,
-            5: 430,
-            6: 430,
-            7: 380,
-            8: 384,
-            9: 384,
-            10: 360,
+            1: 240, 2: 240, 3: 240, 4: 240, 5: 240, 6: 240, 7: 240, 8: 240, 9: 240
         }
 
         self.machine_name: str = machine_name
