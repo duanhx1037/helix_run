@@ -1,6 +1,14 @@
 # 2024.10.28 Yixuan Mei
-from simulator.initial_layout.fake_cluster_generator import FakeClusterGenerator, PartitionedClusterGenerator
+import os
+import sys
+
+# Repo root (parent of baseline/) must be on sys.path when running: python baseline/step1_gen_cluster.py
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
 from simulator.event_simulator.utils import kbps, mbps, gbps, KB, MB, GB, Sec, MilliSec
+from simulator.initial_layout.fake_cluster_generator import PartitionedClusterGenerator
 
 
 def generate_partitioned(file_name: str):
@@ -36,8 +44,11 @@ def main():
     "T4x4", "RTX5090"} GPUs. You can add more machines by profiling them and add the data to
     simulator/model_manager.
     """
-    generate_partitioned(file_name="./config/cross_partition_cluster.ini")
-    print("Partitioned cluster configuration file is generated to ./config/cross_partition_cluster.ini")
+    out_dir = os.path.join(_repo_root, "baseline", "config")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, "cross_partition_cluster.ini")
+    generate_partitioned(file_name=out_path)
+    print(f"Partitioned cluster configuration file is generated to {out_path}")
 
 
 if __name__ == '__main__':
