@@ -5,6 +5,9 @@ Helix LLaMA2-70B 单层延迟 profiling（vLLM + dummy weights）。
 输出格式与 simulator/model_manager/llama2_70b/*/ 下 CSV 约定一致：
   - prompt_bs2time.csv：第一列总 prompt tokens，第二列整数毫秒
   - decode_bs2time.csv：第一列并发 bs，第二列单步 decode 毫秒（一位小数）
+
+单机多卡：--tensor-parallel-size N（如 2 为 TP=2），进程需可见不少于 N 张 GPU；
+不同 TP 的 CSV 勿混用。
 """
 from __future__ import annotations
 
@@ -193,6 +196,7 @@ class ProfileSettings:
     output_dir: Path
     dtype: str
     gpu_memory_utilization: float
+    tensor_parallel_size: int
     prompt_len_for_prompt: int
     prompt_len_for_decode: int
     decode_long_tokens: int
@@ -218,7 +222,7 @@ def _build_llm(one_layer_cfg_dir: Path, tok: Path, s: ProfileSettings) -> Any:
         tokenizer=str(tok),
         load_format="dummy",
         dtype=s.dtype,
-        tensor_parallel_size=1,
+        tensor_parallel_size=s.tensor_parallel_size,
         gpu_memory_utilization=s.gpu_memory_utilization,
         max_model_len=max_len,
         trust_remote_code=True,
@@ -244,6 +248,7 @@ def _collect_gpu_info() -> Dict[str, Any]:
         import torch
 
         if torch.cuda.is_available():
+            out["cuda_device_count"] = torch.cuda.device_count()
             out["cuda_device_name"] = torch.cuda.get_device_name(0)
             out["cuda_version"] = getattr(torch.version, "cuda", None)
     except Exception as e:
@@ -279,7 +284,12 @@ def run_profile(s: ProfileSettings) -> Tuple[List[Tuple[int, float]], List[Tuple
     with tempfile.TemporaryDirectory(prefix="helix_llama70b_1layer_") as tmp:
         one_layer_dir = Path(tmp) / "model"
         _write_one_layer_config(s.model_dir, s.strict_llama2_70b, one_layer_dir)
-        logging.info("One-layer config at %s (tokenizer=%s)", one_layer_dir, s.model_dir)
+        logging.info(
+            "One-layer config at %s (tokenizer=%s), tensor_parallel_size=%d",
+            one_layer_dir,
+            s.model_dir,
+            s.tensor_parallel_size,
+        )
 
         llm: LLM = _build_llm(one_layer_dir, s.model_dir, s)
         try:
@@ -398,6 +408,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p.add_argument("--dtype", default="float16", help="vLLM dtype，如 float16 / bfloat16")
     p.add_argument("--gpu-memory-utilization", type=float, default=0.9)
     p.add_argument(
+        "--tensor-parallel-size",
+        type=int,
+        default=1,
+        metavar="N",
+        help="vLLM tensor_parallel_size；>1 时需可见不少于 N 张 GPU（勿与 TP=1 的 CSV 混用）",
+    )
+    p.add_argument(
         "--prompt-len-for-prompt",
         type=int,
         default=250,
@@ -459,6 +476,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_dir=args.output_dir.resolve(),
         dtype=args.dtype,
         gpu_memory_utilization=args.gpu_memory_utilization,
+        tensor_parallel_size=args.tensor_parallel_size,
         prompt_len_for_prompt=args.prompt_len_for_prompt,
         prompt_len_for_decode=args.prompt_len_for_decode,
         decode_long_tokens=args.decode_long_tokens,
@@ -489,6 +507,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             _write_one_layer_config(settings.model_dir, settings.strict_llama2_70b, Path(tmp) / "m")
         logging.info("Dry-run OK.")
         return 0
+
+    if settings.tensor_parallel_size < 1:
+        logging.error("tensor_parallel_size must be >= 1, got %d", settings.tensor_parallel_size)
+        return 1
+    try:
+        import torch
+
+        if torch.cuda.is_available() and settings.tensor_parallel_size > torch.cuda.device_count():
+            logging.error(
+                "tensor_parallel_size=%d exceeds visible CUDA devices (%d); adjust CUDA_VISIBLE_DEVICES",
+                settings.tensor_parallel_size,
+                torch.cuda.device_count(),
+            )
+            return 1
+    except Exception:
+        pass
 
     t0 = time.perf_counter()
     decode_rows, prompt_rows = run_profile(settings)
