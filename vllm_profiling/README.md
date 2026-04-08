@@ -1,13 +1,13 @@
-# Helix 外部 RTX5090 Profiling（LLaMA2-70B）
+# Helix 外部 RTX5090 Profiling（单层 vLLM）
 
-这个目录是独立于 `Helix-ASPLOS25` 的 profiling 工具，用于在**单卡**上生成 Helix 需要的：
+这个目录是独立于 `Helix-ASPLOS25` 的 profiling 工具，用于在 GPU 上生成 Helix 需要的：
 
 - `prompt_bs2time.csv`
 - `decode_bs2time.csv`
 
-## 1) 为什么单卡也能做
+## 1) 为什么可以只做单层
 
-完整 70B 放不下，但 Helix 的这两个 CSV 本质是**单层 latency 曲线**。做法是：
+Helix 的这两个 CSV 本质是**单层 latency 曲线**；对大模型（例如完整 70B 单卡放不下）同样适用。做法是：
 
 1. 复制 `config.json`，把 `num_hidden_layers` 改成 `1`
 2. 用 **vLLM + `load_format=dummy`**（不加载真实权重）
@@ -30,16 +30,15 @@ python profile_llama2_70b_one_layer_vllm.py \
   --output-dir ./outputs \
   --dtype float16 \
   --gpu-memory-utilization 0.9 \
-  --strict-llama2-70b \
   --warmup 2 \
   --repeat 3
 ```
 
 也可直接 `bash run.sh`（按其中路径改 `model-dir`）。
 
-## 3.1 结构一致性保证
+## 3.1 模型目录
 
-`--strict-llama2-70b` 会校验 `config.json` 的 70B 关键字段，通过后再改为单层 profiling。
+`--model-dir` 指向含 `config.json` 与 tokenizer 的 HuggingFace 式目录即可；脚本只将 `num_hidden_layers` 改为 `1` 后 profiling，不校验某一固定参数量。
 
 输出：
 

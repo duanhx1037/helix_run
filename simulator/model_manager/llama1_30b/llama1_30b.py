@@ -12,6 +12,7 @@ from simulator.model_manager.llama1_30b.l4.llama1_30b_l4 import LLaMa30BonL4
 from simulator.model_manager.llama1_30b.l4x2.llama1_30b_l4x2 import LLaMa30BonL4x2
 from simulator.model_manager.llama1_30b.v100.llama1_30b_v100 import LLaMa30BonV100
 from simulator.model_manager.llama1_30b.a100.llama1_30b_a100 import LLaMa30BonA100
+from simulator.model_manager.llama1_30b.rtx5090.llama1_30b_rtx5090 import LLaMa30BonRTX5090
 from simulator.event_simulator.utils import kbps, mbps, gbps, Byte, KB, MB, GB, Sec, MilliSec, LLaMa1_30B_TOTAL_LAYERS
 
 
@@ -19,20 +20,27 @@ class LLaMa30BStatistics(ModelStatistics):
     def __init__(self, num_machines_dict: Dict[str, int]):
         """
         This class stores the profiling results of different machines running LLaMa30B.
-        num_machines_dict is a subset of {"A100": 0, "V100": 0, "L4": 0, "L4x2": 0, "T4": 0, "T4x2": 0, "T4x4": 0}
+        num_machines_dict is a subset of
+        {"A100": 0, "V100": 0, "L4": 0, "L4x2": 0, "T4": 0, "T4x2": 0, "T4x4": 0, "RTX5090": 0}
         We suggest not including types with 0 machines (which might cause trouble).
         """
         # estimate the typical number of layers on node
-        typical_layers_dict = {"A100": 12, "V100": 4, "L4": 8, "L4x2": 14, "T4": 4, "T4x2": 10, "T4x4": 20}
+        typical_layers_dict = {
+            "A100": 12, "V100": 4, "L4": 8, "L4x2": 14, "T4": 4, "T4x2": 10, "T4x4": 20, "RTX5090": 10,
+        }
         total_layer_capacity = 0
         for machine_name in num_machines_dict:
             total_layer_capacity += num_machines_dict[machine_name] * typical_layers_dict[machine_name]
         if total_layer_capacity < LLaMa1_30B_TOTAL_LAYERS * 1.2:
-            typical_layers_dict = {"A100": 18, "V100": 7, "L4": 11, "L4x2": 22, "T4": 7, "T4x2": 15, "T4x4": 30}
+            typical_layers_dict = {
+                "A100": 18, "V100": 7, "L4": 11, "L4x2": 22, "T4": 7, "T4x2": 15, "T4x4": 30, "RTX5090": 15,
+            }
         typical_layers_dict = {m_type: typical_layers_dict[m_type] for m_type in num_machines_dict}
 
         # estimate the normalized performance
-        normalized_perf_dict = {"A100": 48, "V100": 25, "L4": 9, "L4x2": 15, "T4": 8, "T4x2": 15, "T4x4": 23}
+        normalized_perf_dict = {
+            "A100": 48, "V100": 25, "L4": 9, "L4x2": 15, "T4": 8, "T4x2": 15, "T4x4": 23, "RTX5090": 16,
+        }
         normalized_perf_dict = {m_type: normalized_perf_dict[m_type] for m_type in num_machines_dict}
         for iteration in range(10):
             new_normalized_perf_dict = {}
@@ -78,6 +86,13 @@ class LLaMa30BStatistics(ModelStatistics):
                                       normalized_perf_dict=normalized_perf_dict)
                 a100_typical_tp = a100.get_typical_token_throughput(num_on_node_layers=typical_layers_dict["A100"])
                 new_normalized_perf_dict["A100"] = a100_typical_tp * typical_layers_dict["A100"]
+            if "RTX5090" in num_machines_dict:
+                rtx5090 = LLaMa30BonRTX5090(num_machines_dict=num_machines_dict,
+                                            typical_layers_dict=typical_layers_dict,
+                                            normalized_perf_dict=normalized_perf_dict)
+                rtx5090_typical_tp = rtx5090.get_typical_token_throughput(
+                    num_on_node_layers=typical_layers_dict["RTX5090"])
+                new_normalized_perf_dict["RTX5090"] = rtx5090_typical_tp * typical_layers_dict["RTX5090"]
             normalized_perf_dict = new_normalized_perf_dict
 
         # save the final results
@@ -128,6 +143,12 @@ class LLaMa30BStatistics(ModelStatistics):
                                        normalized_perf_dict=normalized_perf_dict)
         else:
             self.a100 = None
+        if "RTX5090" in num_machines_dict:
+            self.rtx5090 = LLaMa30BonRTX5090(num_machines_dict=num_machines_dict,
+                                             typical_layers_dict=typical_layers_dict,
+                                             normalized_perf_dict=normalized_perf_dict)
+        else:
+            self.rtx5090 = None
 
         # model statistics
         self.token_size: float = 2 * Byte
@@ -166,6 +187,8 @@ class LLaMa30BStatistics(ModelStatistics):
             return self.v100.get_profiling_results()
         elif machine_type == "A100":
             return self.a100.get_profiling_results()
+        elif machine_type == "RTX5090":
+            return self.rtx5090.get_profiling_results()
         else:
             assert False, "Found unknown machine type"
 
@@ -191,6 +214,8 @@ class LLaMa30BStatistics(ModelStatistics):
             return self.v100.get_max_num_layers()
         elif machine_type == "A100":
             return self.a100.get_max_num_layers()
+        elif machine_type == "RTX5090":
+            return self.rtx5090.get_max_num_layers()
         else:
             assert False, "Found unknown machine type"
 
@@ -217,6 +242,8 @@ class LLaMa30BStatistics(ModelStatistics):
             return self.v100.get_inference_settings(num_on_node_layers=num_on_node_layers)
         elif machine_type == "A100":
             return self.a100.get_inference_settings(num_on_node_layers=num_on_node_layers)
+        elif machine_type == "RTX5090":
+            return self.rtx5090.get_inference_settings(num_on_node_layers=num_on_node_layers)
         else:
             assert False, "Found unknown machine type"
 
@@ -244,6 +271,8 @@ class LLaMa30BStatistics(ModelStatistics):
             return self.v100.get_typical_token_throughput(num_on_node_layers=num_on_node_layers)
         elif machine_type == "A100":
             return self.a100.get_typical_token_throughput(num_on_node_layers=num_on_node_layers)
+        elif machine_type == "RTX5090":
+            return self.rtx5090.get_typical_token_throughput(num_on_node_layers=num_on_node_layers)
         else:
             assert False, "Found unknown machine type"
 
@@ -270,6 +299,8 @@ class LLaMa30BStatistics(ModelStatistics):
             return self.v100.get_kv_cache_capacity(num_on_node_layers=num_on_node_layers)
         elif machine_type == "A100":
             return self.a100.get_kv_cache_capacity(num_on_node_layers=num_on_node_layers)
+        elif machine_type == "RTX5090":
+            return self.rtx5090.get_kv_cache_capacity(num_on_node_layers=num_on_node_layers)
         else:
             assert False, "Found unknown machine type"
 
@@ -296,6 +327,8 @@ class LLaMa30BStatistics(ModelStatistics):
             return self.v100.get_activation_backup_capacity(num_on_node_layers=num_on_node_layers)
         elif machine_type == "A100":
             return self.a100.get_activation_backup_capacity(num_on_node_layers=num_on_node_layers)
+        elif machine_type == "RTX5090":
+            return self.rtx5090.get_activation_backup_capacity(num_on_node_layers=num_on_node_layers)
         else:
             assert False, "Found unknown machine type"
 

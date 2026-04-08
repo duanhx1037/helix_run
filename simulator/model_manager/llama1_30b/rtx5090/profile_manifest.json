@@ -1,0 +1,28 @@
+{
+  "created_utc": "2026-04-08T05:14:46.912354+00:00",
+  "settings": {
+    "model_dir": "/home/user/code/helix_run/models/llama-2-30b",
+    "output_dir": "/home/user/code/helix_run/vllm_profiling/outputs",
+    "dtype": "float16",
+    "gpu_memory_utilization": 0.9,
+    "tensor_parallel_size": 1,
+    "prompt_len_for_prompt": 250,
+    "prompt_len_for_decode": 1,
+    "decode_long_tokens": 256,
+    "min_latency_ms": 0.1,
+    "warmup": 2,
+    "repeat": 5,
+    "token_id": 100,
+    "aggregate": "median",
+    "cuda_sync": false,
+    "seed": 0
+  },
+  "elapsed_sec": 727.271,
+  "prompt_points_written": 46,
+  "decode_points_written": 62,
+  "gpu": {
+    "cuda_device_count": 1,
+    "cuda_device_name": "NVIDIA GeForce RTX 5090",
+    "cuda_version": "13.0"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "num_hidden_layers": 24,
+  "max_model_len_used": 2048,
+  "derived_max_model_len_from_config": 2048,
+  "prefill": {
+    "max_concurrent_requests": 1024,
+    "tokens_per_request": 2047,
+    "prefill_max_new_tokens": 1,
+    "vllm_length_rule": "prompt_len + max_new_tokens <= max_model_len",
+    "probe_meta": {
+      "hit_abs_cap": true,
+      "note": "最大并发达到 --abs-max-concurrency=1024 仍成功；真实上限可能更大，请调大该参数再测。"
+    },
+    "helix_hint": "prompt_max_requests_dict[num_hidden_layers] 可设为 <= max_concurrent_requests（在相同 prefill 长度假设下）"
+  },
+  "decode": {
+    "max_concurrent_sequences": 1024,
+    "prefill_tokens_per_seq": 32,
+    "decode_output_tokens": 256,
+    "probe_meta": {
+      "hit_abs_cap": true,
+      "note": "最大并发达到 --abs-max-concurrency=1024 仍成功；真实上限可能更大，请调大该参数再测。"
+    },
+    "helix_hint": "decode_max_tokens_dict[num_hidden_layers] 可设为 <= max_concurrent_sequences（在相同 decode 步数假设下）"
+  },
+  "gpu": {
+    "cuda_device_count": 1,
+    "cuda_device_0_name": "NVIDIA GeForce RTX 5090",
+    "cuda_version": "13.0"
+  },
+  "attempts": [
+    {
+      "n": 1,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 24.654,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "prefill"
+    },
+    {
+      "n": 128,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 12.964,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "prefill"
+    },
+    {
+      "n": 256,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 13.921,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "prefill"
+    },
+    {
+      "n": 512,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 14.731,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "prefill"
+    },
+    {
+      "n": 1024,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 15.399,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "prefill"
+    },
+    {
+      "n": 1,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 19.907,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "decode"
+    },
+    {
+      "n": 128,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 34.099,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "decode"
+    },
+    {
+      "n": 256,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 50.821,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "decode"
+    },
+    {
+      "n": 512,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 86.447,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "decode"
+    },
+    {
+      "n": 1024,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 155.455,
+      "kv_at_init": {
+        "num_gpu_blocks": 227
+      },
+      "label": "decode"
+    }
+  ]
+}

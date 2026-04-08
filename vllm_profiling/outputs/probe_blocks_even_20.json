@@ -1,0 +1,45 @@
+{
+  "mode": "sweep_gpu_blocks",
+  "layer_min": 20,
+  "layer_max": 20,
+  "gpu": {
+    "cuda_device_count": 1,
+    "cuda_device_0_name": "NVIDIA GeForce RTX 5090",
+    "cuda_version": "13.0"
+  },
+  "derived_max_model_len_from_config": 2048,
+  "max_model_len_used": 2048,
+  "args": {
+    "model_dir": "/home/user/code/helix_run/models/llama1_30b",
+    "dtype": "float16",
+    "gpu_memory_utilization": 0.9,
+    "tensor_parallel_size": 1,
+    "load_format": "dummy",
+    "max_model_len": null,
+    "cap_layers": 60,
+    "linear": false,
+    "no_enforce_eager": false,
+    "json_out": "outputs/probe_blocks_even_20.json",
+    "sweep_blocks_min": 20,
+    "sweep_blocks_max": 20,
+    "verbose": false
+  },
+  "model_dir": "/home/user/code/helix_run/models/llama1_30b",
+  "probe_elapsed_sec": 18.952,
+  "num_gpu_blocks_by_layer": {
+    "20": 776
+  },
+  "results": [
+    {
+      "num_hidden_layers": 20,
+      "ok": true,
+      "num_gpu_blocks": 776,
+      "error": null,
+      "elapsed_sec": 17.077,
+      "kv": {
+        "num_gpu_blocks": 776
+      }
+    }
+  ],
+  "vllm_num_blocks_dict_python": "vllm_num_blocks_dict: Dict[int, int] = {\n    20: 776,\n}"
+}

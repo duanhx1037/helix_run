@@ -12,7 +12,7 @@ def llama30b_workload_ratio(target_machine_name: str, target_num_layers: int,
     """
     Get the workload ratio of given machine with given number of layers.
     Note: 1. workload_ratio = num_layers * t_machine / T, where T is the round-trip time of a request.
-          2. num_machines_dict = {"A100": 0, "V100": 0, "L4": 0, "L4x2": 0, "T4": 0, "T4x2": 0, "T4x4": 0}
+          2. num_machines_dict keys match the cluster (may include RTX5090, A100, T4x2, ...).
 
     :param target_machine_name: name of the machine
     :param target_num_layers: number of layers on node

@@ -1,0 +1,94 @@
+{
+  "max_num_hidden_layers_ok": 24,
+  "kv_info_at_max": {
+    "num_gpu_blocks": 227
+  },
+  "gpu": {
+    "cuda_device_count": 1,
+    "cuda_device_0_name": "NVIDIA GeForce RTX 5090",
+    "cuda_version": "13.0"
+  },
+  "derived_max_model_len_from_config": 2048,
+  "max_model_len_used": 2048,
+  "args": {
+    "model_dir": "/home/user/code/helix_run/models/llama1_30b",
+    "dtype": "float16",
+    "gpu_memory_utilization": 0.9,
+    "tensor_parallel_size": 1,
+    "load_format": "dummy",
+    "max_model_len": null,
+    "cap_layers": 60,
+    "linear": false,
+    "no_enforce_eager": false,
+    "json_out": "outputs/probe_capacity.json",
+    "verbose": false
+  },
+  "model_dir": "/home/user/code/helix_run/models/llama1_30b",
+  "probe_elapsed_sec": 113.505,
+  "attempts": [
+    {
+      "num_hidden_layers": 1,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 19.13,
+      "kv": {
+        "num_gpu_blocks": 63612
+      }
+    },
+    {
+      "num_hidden_layers": 60,
+      "ok": false,
+      "error": "RuntimeError('Engine core initialization failed. See root cause above. Failed core proc(s): {}')",
+      "elapsed_sec": 10.258,
+      "kv": {}
+    },
+    {
+      "num_hidden_layers": 30,
+      "ok": false,
+      "error": "RuntimeError('Engine core initialization failed. See root cause above. Failed core proc(s): {}')",
+      "elapsed_sec": 9.911,
+      "kv": {}
+    },
+    {
+      "num_hidden_layers": 15,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 11.261,
+      "kv": {
+        "num_gpu_blocks": 1874
+      }
+    },
+    {
+      "num_hidden_layers": 22,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 10.411,
+      "kv": {
+        "num_gpu_blocks": 477
+      }
+    },
+    {
+      "num_hidden_layers": 26,
+      "ok": false,
+      "error": "RuntimeError('Engine core initialization failed. See root cause above. Failed core proc(s): {}')",
+      "elapsed_sec": 15.269,
+      "kv": {}
+    },
+    {
+      "num_hidden_layers": 24,
+      "ok": true,
+      "error": null,
+      "elapsed_sec": 13.422,
+      "kv": {
+        "num_gpu_blocks": 227
+      }
+    },
+    {
+      "num_hidden_layers": 25,
+      "ok": false,
+      "error": "RuntimeError('Engine core initialization failed. See root cause above. Failed core proc(s): {}')",
+      "elapsed_sec": 16.712,
+      "kv": {}
+    }
+  ]
+}

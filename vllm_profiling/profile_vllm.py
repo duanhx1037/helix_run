@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Helix LLaMA2-70B 单层延迟 profiling（vLLM + dummy weights）。
+Helix 兼容的单层延迟 profiling（vLLM + dummy weights）。
 
-输出格式与 simulator/model_manager/llama2_70b/*/ 下 CSV 约定一致：
+对任意 HuggingFace 式目录（config.json + tokenizer）：将 num_hidden_layers 改为 1 后测量。
+输出格式与 simulator/model_manager 下各模型 */ 目录 CSV 约定一致：
   - prompt_bs2time.csv：第一列总 prompt tokens，第二列整数毫秒
   - decode_bs2time.csv：第一列并发 bs，第二列单步 decode 毫秒（一位小数）
 
@@ -106,25 +107,6 @@ def _measure_generate_seconds(
     return _aggregate(samples, aggregate)
 
 
-def _validate_llama2_70b_structure(cfg: Dict[str, Any]) -> None:
-    required = {
-        "model_type": "llama",
-        "hidden_size": 8192,
-        "intermediate_size": 28672,
-        "num_attention_heads": 64,
-        "num_key_value_heads": 8,
-        "vocab_size": 32000,
-    }
-    for k, v in required.items():
-        if cfg.get(k) != v:
-            raise ValueError(f"config mismatch: expected {k}={v!r}, got {cfg.get(k)!r}")
-    if cfg.get("num_hidden_layers") != 80:
-        raise ValueError(
-            "config mismatch: expected num_hidden_layers=80 for llama2-70b, "
-            f"got {cfg.get('num_hidden_layers')}"
-        )
-
-
 def _format_ms_decode_csv(ms: float) -> str:
     v = round(ms, 1)
     if abs(v - round(v)) < 1e-9:
@@ -159,10 +141,8 @@ def _interpolate_decode_step_ms(decode_rows: List[Tuple[int, float]], bs: int) -
     return ys[-1]
 
 
-def _write_one_layer_config(model_dir: Path, strict: bool, dest_dir: Path) -> None:
+def _write_one_layer_config(model_dir: Path, dest_dir: Path) -> None:
     cfg = json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
-    if strict:
-        _validate_llama2_70b_structure(cfg)
     cfg["num_hidden_layers"] = 1
     dest_dir.mkdir(parents=True, exist_ok=True)
     (dest_dir / "config.json").write_text(
@@ -204,7 +184,6 @@ class ProfileSettings:
     warmup: int
     repeat: int
     token_id: int
-    strict_llama2_70b: bool
     aggregate: Aggregate
     cuda_sync: bool
     seed: int
@@ -257,6 +236,11 @@ def _collect_gpu_info() -> Dict[str, Any]:
 
 
 def run_profile(s: ProfileSettings) -> Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]:
+    # vLLM V1 用 get_context(VLLM_WORKER_MULTIPROC_METHOD) 起 EngineCore，默认是 fork，与
+    # multiprocessing.set_start_method 无关。父进程若已初始化 CUDA（如 main 里 device_count），
+    # fork 子进程会报 “Cannot re-initialize CUDA in forked subprocess”。
+    os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
+
     from vllm import LLM, SamplingParams
 
     if s.decode_long_tokens <= 1:
@@ -281,9 +265,9 @@ def run_profile(s: ProfileSettings) -> Tuple[List[Tuple[int, float]], List[Tuple
     except Exception:
         pass
 
-    with tempfile.TemporaryDirectory(prefix="helix_llama70b_1layer_") as tmp:
+    with tempfile.TemporaryDirectory(prefix="helix_llama_1layer_") as tmp:
         one_layer_dir = Path(tmp) / "model"
-        _write_one_layer_config(s.model_dir, s.strict_llama2_70b, one_layer_dir)
+        _write_one_layer_config(s.model_dir, one_layer_dir)
         logging.info(
             "One-layer config at %s (tokenizer=%s), tensor_parallel_size=%d",
             one_layer_dir,
@@ -396,7 +380,7 @@ def write_csvs(
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Profile LLaMA2-70B single-layer latency for Helix (vLLM dummy weights).",
+        description="Profile single-layer LLM latency for Helix (vLLM dummy weights).",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         epilog=(
             "Decode 列: 每步 ms ≈ (t(max_tokens=K)-t(max_tokens=1))/(K-1)。"
@@ -453,11 +437,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument("--token-id", type=int, default=100, help="合成 prompt 使用的 token id")
     p.add_argument("--seed", type=int, default=0, help="随机种子（best-effort）")
-    p.add_argument(
-        "--strict-llama2-70b",
-        action="store_true",
-        help="校验 config 为 canonical LLaMA2-70B 后再改单层",
-    )
     p.add_argument("-v", "--verbose", action="store_true", help="DEBUG 日志")
     p.add_argument(
         "--dry-run",
@@ -484,7 +463,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         warmup=args.warmup,
         repeat=args.repeat,
         token_id=args.token_id,
-        strict_llama2_70b=args.strict_llama2_70b,
         aggregate=args.aggregate,
         cuda_sync=args.cuda_sync,
         seed=args.seed,
@@ -496,15 +474,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     n_prompt = len([n for n in PROMPT_POINTS[1:] if n % settings.prompt_len_for_prompt == 0])
     logging.info(
-        "Grid: %d decode points + %d prompt points (strict_70b=%s)",
+        "Grid: %d decode points + %d prompt points",
         len(DECODE_POINTS) - 1,
         n_prompt,
-        settings.strict_llama2_70b,
     )
 
     if args.dry_run:
         with tempfile.TemporaryDirectory(prefix="helix_dry_") as tmp:
-            _write_one_layer_config(settings.model_dir, settings.strict_llama2_70b, Path(tmp) / "m")
+            _write_one_layer_config(settings.model_dir, Path(tmp) / "m")
         logging.info("Dry-run OK.")
         return 0
 
@@ -546,4 +523,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # 与 vLLM 的 VLLM_WORKER_MULTIPROC_METHOD=spawn 配合；部分库仍依赖全局 start method。
+    import multiprocessing
+
+    try:
+        multiprocessing.set_start_method("spawn")
+    except RuntimeError:
+        pass
     raise SystemExit(main())
